@@ -51,107 +51,102 @@ C_ORGAO_AN = "91"
 class EventoClient:
     """Envia eventos de Manifestação do Destinatário e baixa XMLs completos."""
 
-    def __init__(self, certificado: CertificadoDigital, ambiente: int = 1):
-        self.cert    = certificado
+    def __init__(self, certificado, ambiente: int = 1):
+        self.cert     = certificado
         self.ambiente = ambiente
-        self.url_ev  = URL_EVENTO_PROD if ambiente == 1 else URL_EVENTO_HOM
-        self.url_dist = URL_DIST_PROD  if ambiente == 1 else URL_DIST_HOM
+        self.url_ev   = URL_EVENTO_PROD if ambiente == 1 else URL_EVENTO_HOM
+        self.url_dist = URL_DIST_PROD   if ambiente == 1 else URL_DIST_HOM
+        self._modo_winhttp = getattr(certificado, "_winhttp_cn", None) is not None
 
     # ── Manifestação ─────────────────────────────────────────────────────────
 
     def manifestar(self, cnpj: str, chave: str, tp_evento: str,
                    justificativa: str = "", n_seq: int = 1) -> dict:
-        """
-        Envia um evento de manifestação do destinatário.
+        xml_evento   = self._montar_xml_evento(cnpj, chave, tp_evento, justificativa, n_seq)
+        soap_action  = ("http://www.portalfiscal.inf.br/nfe/wsdl/"
+                        "NFeRecepcaoEvento4/nfeRecepcaoEvento")
 
-        :param cnpj:          CNPJ do destinatário (14 dígitos)
-        :param chave:         Chave de acesso da NF-e (44 dígitos)
-        :param tp_evento:     '210200', '210210', '210220' ou '210240'
-        :param justificativa: Obrigatória apenas para '210240'
-        :param n_seq:         Número de sequência do evento (geralmente 1)
-        :returns: dict com status, codigo, mensagem, protocolo
-        """
-        cert_path, key_path = None, None
+        if self._modo_winhttp:
+            return self._post_winhttp(
+                self.url_ev, xml_evento, self.cert._winhttp_cn,
+                soap_action, self._processar_retorno_evento, assinar=True
+            )
+
+        cert_path = key_path = None
         try:
             cert_path, key_path = self.cert.exportar_pem_temp()
-            xml_evento = self._montar_xml_evento(
-                cnpj, chave, tp_evento, justificativa, n_seq
-            )
             xml_assinado = self._assinar(xml_evento, cert_path, key_path)
             soap = self._montar_soap_evento(xml_assinado)
-
-            headers = {
-                "Content-Type": "application/soap+xml; charset=utf-8",
-                "SOAPAction": (
-                    "http://www.portalfiscal.inf.br/nfe/wsdl/"
-                    "NFeRecepcaoEvento4/nfeRecepcaoEvento"
-                ),
-            }
             resp = requests.post(
                 self.url_ev,
                 data=soap.encode("utf-8"),
-                headers=headers,
+                headers={
+                    "Content-Type": "application/soap+xml; charset=utf-8",
+                    "SOAPAction": soap_action,
+                },
                 cert=(cert_path, key_path),
-                verify=False,
-                timeout=60,
+                verify=False, timeout=60,
             )
-
             if resp.status_code != 200:
-                return {
-                    "status": "erro",
-                    "codigo": str(resp.status_code),
-                    "mensagem": f"HTTP {resp.status_code}",
-                    "protocolo": "",
-                }
-
+                return {"status": "erro", "codigo": str(resp.status_code),
+                        "mensagem": f"HTTP {resp.status_code}", "protocolo": ""}
             return self._processar_retorno_evento(resp.text)
-
         finally:
             for p in [cert_path, key_path]:
                 if p and os.path.exists(p):
-                    try:
-                        os.unlink(p)
-                    except Exception:
-                        pass
+                    try: os.unlink(p)
+                    except Exception: pass
 
     # ── Download XML ─────────────────────────────────────────────────────────
 
     def baixar_xml(self, cnpj: str, nsu: int) -> dict:
-        """
-        Baixa o XML completo de uma NF-e via consNSU (NSU específico).
-        Retorna dict com xml_str (string XML) ou mensagem de erro.
-        """
-        cert_path, key_path = None, None
-        try:
-            cert_path, key_path = self.cert.exportar_pem_temp()
-            xml_req = self._montar_cons_nsu(cnpj, nsu)
-            soap    = self._montar_soap_dist(xml_req)
+        """Baixa o XML completo de uma NF-e via consNSU (NSU específico)."""
+        xml_req     = self._montar_cons_nsu(cnpj, nsu)
+        soap        = self._montar_soap_dist(xml_req)
+        soap_action = ("http://www.portalfiscal.inf.br/nfe/wsdl/"
+                       "NFeDistribuicaoDFe/nfeDistDFeInteresse")
 
-            headers = {
-                "Content-Type": "application/soap+xml; charset=utf-8",
-                "SOAPAction": (
-                    "http://www.portalfiscal.inf.br/nfe/wsdl/"
-                    "NFeDistribuicaoDFe/nfeDistDFeInteresse"
-                ),
-            }
-            resp = requests.post(
-                self.url_dist,
-                data=soap.encode("utf-8"),
-                headers=headers,
-                cert=(cert_path, key_path),
-                verify=False,
-                timeout=60,
+        if self._modo_winhttp:
+            return self._post_winhttp(
+                self.url_dist, soap, self.cert._winhttp_cn,
+                soap_action, lambda r: self._processar_retorno_xml(r, nsu)
             )
 
+        cert_path = key_path = None
+        try:
+            cert_path, key_path = self.cert.exportar_pem_temp()
+            resp = requests.post(
+                self.url_dist, data=soap.encode("utf-8"),
+                headers={"Content-Type": "application/soap+xml; charset=utf-8",
+                         "SOAPAction": soap_action},
+                cert=(cert_path, key_path), verify=False, timeout=60,
+            )
             return self._processar_retorno_xml(resp.text, nsu)
-
         finally:
             for p in [cert_path, key_path]:
                 if p and os.path.exists(p):
-                    try:
-                        os.unlink(p)
-                    except Exception:
-                        pass
+                    try: os.unlink(p)
+                    except Exception: pass
+
+    # ── WinHTTP COM (certificados não-exportáveis) ────────────────────────────
+
+    def _post_winhttp(self, url, xml_or_soap, cn, soap_action, processar_fn, assinar=False):
+        """POST via WinHTTP COM com CoInitialize — funciona em qualquer thread."""
+        try:
+            import pythoncom
+            from src.win_cert_store import requisicao_winhttp
+
+            pythoncom.CoInitialize()
+            try:
+                body = xml_or_soap if isinstance(xml_or_soap, bytes) else xml_or_soap.encode("utf-8")
+                response_text = requisicao_winhttp(url, body, cn,
+                                                   headers={"SOAPAction": soap_action})
+                return processar_fn(response_text)
+            finally:
+                pythoncom.CoUninitialize()
+        except Exception as e:
+            return {"status": "erro", "codigo": "WINHTTP_ERRO",
+                    "mensagem": str(e), "protocolo": "", "xml_str": ""}
 
     # ── Montagem de XMLs ─────────────────────────────────────────────────────
 

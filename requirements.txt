@@ -12,5 +12,9 @@ urllib3>=2.0.0
 lxml>=4.9.0
 signxml>=3.2.0
 
+# Windows Certificate Store — certificados não-exportáveis via WinHTTP COM
+# Necessário apenas no Windows para usar certificados instalados no sistema
+pywin32>=306
+
 # (Opcional) pyOpenSSL como fallback para leitura do .pfx
 pyOpenSSL>=23.0.0

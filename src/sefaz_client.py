@@ -40,19 +40,54 @@ DEBUG_DIR.mkdir(exist_ok=True)
 
 
 class SefazClient:
-    def __init__(self, certificado: CertificadoDigital, ambiente: int = 1, cuf_autor: str = "43"):
+    def __init__(self, certificado, ambiente: int = 1, cuf_autor: str = "43"):
         self.cert      = certificado
         self.ambiente  = ambiente
         self.cuf_autor = cuf_autor
         self.url       = URL_PRODUCAO if ambiente == 1 else URL_HOMOLOGACAO
+        # Detecta se o certificado é do Windows Store (não precisa de PEM)
+        self._modo_winhttp = getattr(certificado, "_winhttp_cn", None) is not None
 
     def consultar_distribuicao(self, cnpj: str, ultimo_nsu: int = 0) -> dict:
+        xml_body      = self._montar_xml(cnpj, ultimo_nsu)
+        soap_envelope = self._montar_soap(xml_body)
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        if self._modo_winhttp:
+            return self._consultar_winhttp(soap_envelope, ts, ultimo_nsu)
+        else:
+            return self._consultar_requests(soap_envelope, ts, ultimo_nsu)
+
+    def _consultar_winhttp(self, soap_envelope: str, ts: str, ultimo_nsu: int) -> dict:
+        """Usa WinHTTP COM — para certificados não-exportáveis do Windows Store."""
+        try:
+            import pythoncom
+            from src.win_cert_store import requisicao_winhttp
+
+            # CoInitialize obrigatório em threads que usam COM
+            pythoncom.CoInitialize()
+            try:
+                cn = self.cert._winhttp_cn
+                response_text = requisicao_winhttp(
+                    self.url,
+                    soap_envelope.encode("utf-8"),
+                    cn,
+                    headers={"SOAPAction": SOAPACTION}
+                )
+                (DEBUG_DIR / f"resposta_{ts}.xml").write_text(response_text, encoding="utf-8")
+                return self._processar_resposta(response_text, ultimo_nsu)
+            finally:
+                pythoncom.CoUninitialize()
+
+        except Exception as e:
+            return self._erro(str(e), "WINHTTP_ERRO", ultimo_nsu)
+
+    def _consultar_requests(self, soap_envelope: str, ts: str, ultimo_nsu: int) -> dict:
+        """Usa requests + PEM — para certificados carregados de arquivo .pfx."""
         cert_path = key_path = None
         try:
             cert_path, key_path = self.cert.exportar_pem_temp()
-
-            xml_body      = self._montar_xml(cnpj, ultimo_nsu)
-            soap_envelope = self._montar_soap(xml_body)
 
             response = requests.post(
                 self.url,
@@ -66,8 +101,6 @@ class SefazClient:
                 timeout=60,
             )
 
-            # Salva resposta bruta para diagnóstico em logs/
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             (DEBUG_DIR / f"resposta_{ts}.xml").write_text(response.text, encoding="utf-8")
 
             if response.status_code != 200:

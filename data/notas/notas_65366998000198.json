@@ -1,0 +1,50 @@
+[
+  {
+    "nsu": 1,
+    "schema": "resNFe_v1.01.xsd",
+    "tipo": "Resumo",
+    "chave": "43260491355354000104550020004159021333747910",
+    "emitente": "CINDREIA COMERCIO DE ALIMENTOS LTDA (91355354000104)",
+    "valor": "1.049,63",
+    "emissao": "01/04/2026 16:19",
+    "situacao": "Autorizada",
+    "cstat": "1",
+    "xml_raw": "<resNFe xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" versao=\"1.01\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><chNFe>43260491355354000104550020004159021333747910</chNFe><CNPJ>91355354000104</CNPJ><xNome>CINDREIA COMERCIO DE ALIMENTOS LTDA</xNome><IE>1770214590</IE><dhEmi>2026-04-01T16:19:59-03:00</dhEmi><tpNF>1</tpNF><vNF>1049.63</vNF><digVal>Ub1MrkW2JsCtNUsDjm/pA/vZF50=</digVal><dhRecbto>2026-04-01T16:20:10-03:00</dhRecbto><nProt>243260107150398</nProt><cSitNFe>1</cSitNFe></resNFe>"
+  },
+  {
+    "nsu": 2,
+    "schema": "resNFe_v1.01.xsd",
+    "tipo": "Resumo",
+    "chave": "43260407272443000180550000009965081866609406",
+    "emitente": "MARQUESPAN ALIMENTOS LTDA. (07272443000180)",
+    "valor": "1.506,35",
+    "emissao": "02/04/2026 06:00",
+    "situacao": "Denegada",
+    "cstat": "3",
+    "xml_raw": "<resNFe xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" versao=\"1.01\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><chNFe>43260407272443000180550000009965081866609406</chNFe><CNPJ>07272443000180</CNPJ><xNome>MARQUESPAN ALIMENTOS LTDA.</xNome><IE>0570235855</IE><dhEmi>2026-04-02T06:00:00-03:00</dhEmi><tpNF>1</tpNF><vNF>1506.35</vNF><digVal>nZINgZMRajQDOTqrK6AQFOIbmYw=</digVal><dhRecbto>2026-04-02T12:46:32-03:00</dhRecbto><nProt>243260108408263</nProt><cSitNFe>3</cSitNFe></resNFe>"
+  },
+  {
+    "nsu": 3,
+    "schema": "procEventoNFe_v1.00.xsd",
+    "tipo": "Evento (Cancelamento)",
+    "chave": "43260407272443000180550000009965081866609406",
+    "emitente": "07272443000180",
+    "valor": "—",
+    "emissao": "02/04/2026 14:20",
+    "situacao": "Cancelamento",
+    "cstat": "135",
+    "xml_raw": "<procEventoNFe versao=\"1.00\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><evento xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"1.00\"><infEvento Id=\"ID1101114326040727244300018055000000996508186660940601\"><cOrgao>43</cOrgao><tpAmb>1</tpAmb><CNPJ>07272443000180</CNPJ><chNFe>43260407272443000180550000009965081866609406</chNFe><dhEvento>2026-04-02T14:20:50-03:00</dhEvento><tpEvento>110111</tpEvento><nSeqEvento>1</nSeqEvento><verEvento>1.00</verEvento><detEvento versao=\"1.00\"><descEvento>Cancelamento</descEvento><nProt>243260108408263</nProt><xJust>NF ESTA INCORRETA</xJust></detEvento></infEvento><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\" /><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\" /><Reference URI=\"#ID1101114326040727244300018055000000996508186660940601\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\" /><Transform Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\" /></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\" /><DigestValue>jamYw6nxKHm32xG9kUN57BbN/0U=</DigestValue></Reference></SignedInfo><SignatureValue>aKU8H5zELkD5KgQIg/WhWoj0c2IC+u9gQfMtvIbSEbRYykMTngrxFCp56GhTgfmPd3Yd64Z1+/ehh0ahO1t/M3e45DrbRriquHIUrlDshqdiJs7hPo/Uo+MMQ5q57DE8wqrVopKJ/FvmKvIJnIQt75oPaAyuHmL4TIelO69G+MkytF7xyNWlsmkWdztlcY91hceyvrFbFi5ME6HV86hV8MK06ucmBklFmP27OWp2DjsSFG+AtiI0qbnfPVUeC26o0qceRzR3VpxGuODz3FyylAIrrfyIZBKpRiqR98ecPor99wi4fk7A4xWYugAMO4dbCR8GW/WzwjNZi6yMswv+Ug==</SignatureValue><KeyInfo><X509Data><X509Certificate>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</X509Certificate></X509Data></KeyInfo></Signature></evento><retEvento versao=\"1.00\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infEvento><tpAmb>1</tpAmb><verAplic>RS2602040827DR</verAplic><cOrgao>43</cOrgao><cStat>135</cStat><xMotivo>Evento registrado e vinculado a NF-e</xMotivo><chNFe>43260407272443000180550000009965081866609406</chNFe><tpEvento>110111</tpEvento><nSeqEvento>1</nSeqEvento><dhRegEvento>2026-04-02T14:21:00-03:00</dhRegEvento><nProt>243260108555855</nProt></infEvento></retEvento></procEventoNFe>"
+  },
+  {
+    "nsu": 4,
+    "schema": "resNFe_v1.01.xsd",
+    "tipo": "Resumo",
+    "chave": "43260407272443000180550000009975161006080460",
+    "emitente": "MARQUESPAN ALIMENTOS LTDA. (07272443000180)",
+    "valor": "1.506,35",
+    "emissao": "02/04/2026 06:00",
+    "situacao": "Autorizada",
+    "cstat": "1",
+    "xml_raw": "<resNFe xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" versao=\"1.01\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><chNFe>43260407272443000180550000009975161006080460</chNFe><CNPJ>07272443000180</CNPJ><xNome>MARQUESPAN ALIMENTOS LTDA.</xNome><IE>0570235855</IE><dhEmi>2026-04-02T06:00:00-03:00</dhEmi><tpNF>1</tpNF><vNF>1506.35</vNF><digVal>6xywGWPjKF9c5r+VEudaTfiuCXI=</digVal><dhRecbto>2026-04-02T14:36:16-03:00</dhRecbto><nProt>243260108587187</nProt><cSitNFe>1</cSitNFe></resNFe>"
+  }
+]

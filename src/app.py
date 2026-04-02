@@ -492,37 +492,60 @@ class NFEConsultaApp(tk.Tk):
         lb.bind("<Double-1>", lambda e: confirmar())
 
     def _carregar_cert_do_windows(self, cert_info: dict):
-        """Carrega o certificado selecionado do Windows Store via exportação PFX."""
+        """Carrega certificado do Windows Store. Tenta exportar; se falhar, usa WinHTTP."""
+        titular = cert_info["titular"]
+        self._log(f"Carregando certificado do Windows Store: {titular}...", "info")
+
+        # Tenta primeiro exportar (para certificados exportáveis)
         try:
             from src.win_cert_store import exportar_pem_do_store
-            from src.certificado import CertificadoDigital
-
-            der = cert_info["der"]
-            self._log(f"Exportando chave privada do Windows Store para: {cert_info['titular']}...", "info")
-
-            cert_pem, key_pem = exportar_pem_do_store(der)
-
-            # Cria uma instância de CertificadoDigital a partir dos PEMs já extraídos
+            cert_pem, key_pem = exportar_pem_do_store(cert_info["der"])
             self.cert = _CertificadoWindowsStore(cert_pem, key_pem, cert_info)
             info = self.cert.info()
             self._atualizar_status_cert(ok=True, info=info)
             self._log(
-                f"Certificado do Windows carregado: {info['titular']} | "
+                f"Certificado exportável carregado: {info['titular']} | "
+                f"CNPJ: {info['cnpj']} | Validade: {info['validade']}", "ok"
+            )
+            if info["cnpj"]:
+                self.var_cnpj.set(info["cnpj"])
+            return
+
+        except Exception as e_export:
+            self._log(f"Exportação bloqueada ({e_export.__class__.__name__}) — "
+                      f"usando modo WinHTTP (não-exportável)...", "aviso")
+
+        # Fallback: modo WinHTTP — chave nunca sai do Windows
+        try:
+            import win32com.client  # Verifica se pywin32 está instalado
+            self.cert = _CertificadoWinHTTP(cert_info)
+            info = self.cert.info()
+            self._atualizar_status_cert(ok=True, info=info)
+            self._log(
+                f"Certificado não-exportável carregado via WinHTTP: {info['titular']} | "
                 f"CNPJ: {info['cnpj']} | Validade: {info['validade']}", "ok"
             )
             if info["cnpj"]:
                 self.var_cnpj.set(info["cnpj"])
 
+        except ImportError:
+            self.cert = None
+            self._atualizar_status_cert(ok=False)
+            self._log(
+                "pywin32 não instalado — necessário para certificados não-exportáveis.\n"
+                "Execute: pip install pywin32", "erro"
+            )
+            messagebox.showerror(
+                "pywin32 necessário",
+                "Este certificado foi instalado como NÃO-EXPORTÁVEL.\n\n"
+                "Para usá-lo sem o arquivo .pfx, instale o pywin32:\n\n"
+                "    pip install pywin32\n\n"
+                "Depois reinicie a aplicação."
+            )
         except Exception as e:
             self.cert = None
             self._atualizar_status_cert(ok=False)
-            msg = str(e)
-            if "exportar" in msg.lower() or "pfx" in msg.lower() or "falha" in msg.lower():
-                msg += ("\n\nDica: o Windows pode bloquear a exportação da chave privada "
-                        "se o certificado foi instalado como não-exportável.\n"
-                        "Neste caso, use a opção de carregar o arquivo .pfx manualmente.")
-            self._log(f"Erro ao carregar certificado do Windows: {e}", "erro")
-            messagebox.showerror("Erro", msg)
+            self._log(f"Erro ao carregar via WinHTTP: {e}", "erro")
 
     def _atualizar_status_cert(self, ok=None, info=None):
         if ok is True and info:
@@ -996,6 +1019,45 @@ class NFEConsultaApp(tk.Tk):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+class _CertificadoWinHTTP:
+    """
+    Certificado do Windows Store NÃO-EXPORTÁVEL.
+    A chave privada nunca sai do Windows — o SChannel gerencia a autenticação.
+    Sinaliza ao SefazClient para usar WinHTTP COM ao invés de requests+PEM.
+    """
+    def __init__(self, cert_info: dict):
+        self._titular  = cert_info.get("titular", "")
+        self._cnpj     = cert_info.get("cnpj", "")
+        self._validade = cert_info.get("validade", "")
+        # Usado pelo SefazClient para detectar o modo WinHTTP
+        self._winhttp_cn = self._titular
+
+    def info(self) -> dict:
+        return {
+            "titular":  self._titular,
+            "cnpj":     self._cnpj,
+            "validade": self._validade,
+            "arquivo":  "Windows Store (não-exportável / WinHTTP)",
+        }
+
+    def exportar_pem_temp(self):
+        raise RuntimeError(
+            "Certificado não-exportável — use SefazClient em modo WinHTTP."
+        )
+
+    @property
+    def titular(self) -> str:
+        return self._titular
+
+    @property
+    def cnpj(self) -> str:
+        return self._cnpj
+
+    @property
+    def validade(self) -> str:
+        return self._validade
+
+
 class _CertificadoWindowsStore:
     """
     Wrapper que expõe a mesma interface que CertificadoDigital,
