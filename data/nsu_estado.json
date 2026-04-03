@@ -5,10 +5,15 @@
   },
   "65366998000198": {
     "ultimo_nsu": 4,
-    "ultima_consulta": "2026-04-02T18:19:04.590196"
+    "ultima_consulta": "2026-04-02T21:56:24.552903"
   },
   "57971182000165": {
     "ultimo_nsu": 0,
     "ultima_consulta": "2026-04-02T18:17:47.099439"
+  },
+  "_cert_config": {
+    "tipo": "windows",
+    "valor": "PCR PADARIA E CONFEITARIA BELLO SABORE LTDA:65366998000198",
+    "cnpj": "65366998000198"
   }
 }

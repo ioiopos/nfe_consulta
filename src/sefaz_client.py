@@ -35,7 +35,8 @@ URL_HOMOLOGACAO = "https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistrib
 NS_NFE  = "http://www.portalfiscal.inf.br/nfe"
 SOAPACTION = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse"
 
-DEBUG_DIR = Path(__file__).parent.parent / "logs"
+_BASE_DIR  = Path(os.environ.get("ABBAS_NFE_DIR", Path(__file__).parent.parent))
+DEBUG_DIR  = _BASE_DIR / "logs"
 DEBUG_DIR.mkdir(exist_ok=True)
 
 

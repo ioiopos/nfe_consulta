@@ -23,20 +23,25 @@ from src.evento_client import EventoClient, TIPOS_EVENTO
 from src.win_cert_store import listar_certificados_windows, IS_WINDOWS
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CORES E ESTILO — Paleta profissional, sóbria (tom corporativo/fiscal)
+# CORES — Abbas Driver Portal, fiel ao portal real
+# Navbar/header: --dark #1a1a2e  |  Conteúdo: --light #f5f5f5
+# Cards: branco  |  Primária: #e63428 (vermelho)
 # ─────────────────────────────────────────────────────────────────────────────
-COR_BG         = "#F2F1EE"   # cinza quente claro — fundo geral
-COR_PANEL      = "#E8E6E1"   # superfície secundária
-COR_CARD       = "#FFFFFF"   # cards brancos limpos
-COR_BORDER     = "#CCCAB9"   # bordas sutis
-COR_ACCENT     = "#1E4D7B"   # azul corporativo escuro
-COR_ACCENT2    = "#15395C"   # azul hover
-COR_SUCCESS    = "#2A6B43"   # verde discreto
-COR_WARNING    = "#7A5A00"   # âmbar escuro
-COR_ERROR      = "#A83232"   # vermelho corporativo
-COR_TEXT       = "#1A1918"   # texto principal
-COR_TEXT_DIM   = "#696760"   # texto secundário
-COR_HOVER      = "#DDDBD4"   # hover neutro
+COR_BG         = "#f0f2f5"   # --light — fundo geral (conteúdo)
+COR_PANEL      = "#e8eaed"   # superfície secundária levemente mais escura
+COR_CARD       = "#ffffff"   # cards brancos
+COR_BORDER     = "#dee2e6"   # --border
+COR_ACCENT     = "#e63428"   # --primary (vermelho Abbas)
+COR_ACCENT2    = "#c0281d"   # --primary-dk
+COR_SUCCESS    = "#198754"   # --success
+COR_WARNING    = "#e6a817"   # --warning escurecido p/ leitura em claro
+COR_ERROR      = "#dc3545"   # --danger
+COR_TEXT       = "#1a1a2e"   # --dark — texto principal
+COR_TEXT_DIM   = "#6c757d"   # --gray
+COR_HOVER      = "#fef0ef"   # vermelho bem suave p/ hover de linha
+COR_XML_OK     = "#d4edda"   # verde claro — XML baixado
+COR_HEADER_BG  = "#1a1a2e"   # --dark — navbar
+COR_HEADER_FG  = "#ffffff"   # texto no header
 
 FONT_TITLE  = ("Segoe UI", 14, "bold")
 FONT_HEADER = ("Segoe UI", 10, "bold")
@@ -48,7 +53,7 @@ FONT_MONO   = ("Consolas", 9)
 class NFEConsultaApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Consulta NF-e Destinadas  ·  SEFAZ / Ambiente Nacional")
+        self.title("ABBAS Tecnologia · NF-e Destinadas — SEFAZ Ambiente Nacional")
         self.geometry("1200x780")
         self.minsize(1000, 680)
         self.configure(bg=COR_BG)
@@ -58,26 +63,30 @@ class NFEConsultaApp(tk.Tk):
         self._build_ui()
         self._atualizar_status_cert()
         self._carregar_nfes_salvas()
+        self._restaurar_cert_salvo()  # restaura certificado da sessão anterior
 
     # ─── UI ──────────────────────────────────────────────────────────────────
 
     def _build_ui(self):
-        # ── Cabeçalho ─────────────────────────────────────────────────────
-        header = tk.Frame(self, bg=COR_BG, pady=0)
+        # ── Cabeçalho — igual à .navbar do portal Abbas ───────────────────
+        header = tk.Frame(self, bg=COR_HEADER_BG, pady=0)
         header.pack(fill="x", padx=0, pady=0)
 
-        topo = tk.Frame(header, bg=COR_BG)
-        topo.pack(fill="x", padx=20, pady=(16, 0))
+        topo = tk.Frame(header, bg=COR_HEADER_BG)
+        topo.pack(fill="x", padx=20, pady=(13, 13))
 
-        tk.Label(topo, text="NF-e Destinadas", font=FONT_TITLE,
-                 fg=COR_TEXT, bg=COR_BG).pack(side="left")
-        tk.Label(topo, text="   Modelo 55  ·  SEFAZ Ambiente Nacional",
-                 font=("Segoe UI", 10), fg=COR_TEXT_DIM, bg=COR_BG).pack(side="left", padx=(4, 0))
+        # border-left 2px vermelho + "ABBAS" branco (nav-title do portal)
+        tk.Frame(topo, bg=COR_ACCENT, width=3).pack(side="left", fill="y", padx=(0, 10))
 
-        # separador
-        sep = tk.Frame(self, bg=COR_BORDER, height=1)
-        sep.pack(fill="x", padx=0, pady=(10, 0))
+        tk.Label(topo, text="ABBAS", font=("Segoe UI", 14, "bold"),
+                 fg=COR_HEADER_FG, bg=COR_HEADER_BG).pack(side="left")
+        tk.Label(topo, text=" Tecnologia", font=("Segoe UI", 11),
+                 fg="#cccccc", bg=COR_HEADER_BG).pack(side="left")
+        tk.Label(topo, text="    NF-e Destinadas  ·  Modelo 55  ·  SEFAZ Ambiente Nacional",
+                 font=("Segoe UI", 9), fg="#8899aa", bg=COR_HEADER_BG).pack(side="left", padx=(12, 0))
 
+        # Linha vermelha 3px — brand divider
+        tk.Frame(self, bg=COR_ACCENT, height=3).pack(fill="x")
         # ── Corpo principal ────────────────────────────────────────────────
         body = tk.Frame(self, bg=COR_BG)
         body.pack(fill="both", expand=True, padx=20, pady=14)
@@ -102,13 +111,15 @@ class NFEConsultaApp(tk.Tk):
         self._build_status_bar()
 
     def _card(self, parent, titulo):
-        """Cria um card estilizado com título."""
+        """Cria um card estilizado com título — tema Abbas."""
         outer = tk.Frame(parent, bg=COR_BORDER, pady=1, padx=1)
         outer.pack(fill="x", pady=(0, 10))
         inner = tk.Frame(outer, bg=COR_CARD, padx=14, pady=12)
         inner.pack(fill="both", expand=True)
+        # Linha laranja fina no topo do card
+        tk.Frame(inner, bg=COR_ACCENT, height=2).pack(fill="x", pady=(0, 8))
         tk.Label(inner, text=titulo, font=FONT_HEADER,
-                 fg=COR_ACCENT, bg=COR_CARD).pack(anchor="w", pady=(0, 8))
+                 fg=COR_ACCENT, bg=COR_CARD).pack(anchor="w", pady=(0, 6))
         return inner
 
     def _build_panel_cert(self, parent):
@@ -278,29 +289,33 @@ class NFEConsultaApp(tk.Tk):
                          font=FONT_MONO,
                          rowheight=24)
         style.configure("NF.Treeview.Heading",
-                         background=COR_PANEL,
-                         foreground=COR_TEXT,
+                         background=COR_HEADER_BG,
+                         foreground="#ffffff",
                          font=FONT_HEADER,
                          borderwidth=0)
         style.map("NF.Treeview",
-                  background=[("selected", "#D6E4F0")],
+                  background=[("selected", "#fef0ef")],
                   foreground=[("selected", COR_ACCENT)])
 
-        cols = ("nsu", "chave", "emitente", "valor", "emissao", "situacao")
+        cols = ("sel", "nsu", "chave", "emitente", "valor", "emissao", "situacao", "xml")
         self.tree = ttk.Treeview(card, columns=cols, show="headings",
                                   style="NF.Treeview")
 
         headers = {
-            "nsu":      ("NSU",          80),
-            "chave":    ("Chave de Acesso", 340),
+            "sel":      ("✓",              30),
+            "nsu":      ("NSU",            80),
+            "chave":    ("Chave de Acesso", 330),
             "emitente": ("Emitente / CNPJ", 180),
-            "valor":    ("Valor (R$)",    100),
-            "emissao":  ("Emissão",       130),
-            "situacao": ("Situação",       90),
+            "valor":    ("Valor (R$)",      100),
+            "emissao":  ("Emissão",         120),
+            "situacao": ("Situação",         90),
+            "xml":      ("XML",              45),
         }
         for col, (label, width) in headers.items():
-            self.tree.heading(col, text=label)
-            self.tree.column(col, width=width, anchor="w")
+            self.tree.heading(col, text=label,
+                              command=lambda c=col: self._toggle_sel_all() if c == "sel" else None)
+            anchor = "center" if col in ("sel", "xml") else "w"
+            self.tree.column(col, width=width, anchor=anchor, minwidth=width)
 
         scroll_y = ttk.Scrollbar(card, orient="vertical", command=self.tree.yview)
         scroll_x = ttk.Scrollbar(card, orient="horizontal", command=self.tree.xview)
@@ -310,6 +325,7 @@ class NFEConsultaApp(tk.Tk):
         scroll_x.pack(side="bottom", fill="x")
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<Double-1>", self._detalhar_nfe)
+        self.tree.bind("<Button-1>", self._toggle_sel_item)
 
         # Botões de ação — linha 1
         brow1 = tk.Frame(card, bg=COR_CARD)
@@ -321,9 +337,14 @@ class NFEConsultaApp(tk.Tk):
                   command=lambda: self._detalhar_nfe(None)).pack(side="left", padx=(0, 4))
 
         tk.Button(brow1, text="⬇ Baixar XML", font=FONT_SMALL,
-                  bg=COR_ACCENT, fg="#FFFFFF", relief="flat",
-                  cursor="hand2", padx=10, pady=4,
+                  bg=COR_ACCENT, fg="#FFFFFF", activebackground=COR_ACCENT2,
+                  relief="flat", cursor="hand2", padx=10, pady=4,
                   command=self._baixar_xml).pack(side="left", padx=(0, 4))
+
+        tk.Button(brow1, text="⬇ Baixar Selecionados", font=FONT_SMALL,
+                  bg=COR_ACCENT2, fg="#FFFFFF", activebackground="#B04010",
+                  relief="flat", cursor="hand2", padx=10, pady=4,
+                  command=self._baixar_xml_lote).pack(side="left", padx=(0, 4))
 
         tk.Button(brow1, text="Exportar JSON", font=FONT_SMALL,
                   bg=COR_PANEL, fg=COR_TEXT, relief="flat",
@@ -345,11 +366,11 @@ class NFEConsultaApp(tk.Tk):
         btn_specs = [
             ("Ciência",         "210210", COR_PANEL,  COR_TEXT),
             ("Confirmação",     "210200", COR_SUCCESS, "#FFFFFF"),
-            ("Desconhecimento", "210220", COR_WARNING, "#FFFFFF"),
+            ("Desconhecimento", "210220", COR_WARNING, "#000000"),
             ("Não Realizada",   "210240", COR_ERROR,   "#FFFFFF"),
         ]
         for label, tp, bg, fg in btn_specs:
-            tp_local = tp  # captura no closure
+            tp_local = tp
             tk.Button(brow2, text=label, font=FONT_SMALL,
                       bg=bg, fg=fg, relief="flat",
                       cursor="hand2", padx=8, pady=3,
@@ -387,10 +408,10 @@ class NFEConsultaApp(tk.Tk):
     def _build_status_bar(self):
         bar = tk.Frame(self, bg=COR_BORDER, height=1)
         bar.pack(fill="x")
-        status = tk.Frame(self, bg=COR_PANEL, pady=5)
+        status = tk.Frame(self, bg=COR_HEADER_BG, pady=5)
         status.pack(fill="x", padx=0)
         self.lbl_status = tk.Label(status, text="Aguardando certificado...",
-                                    font=FONT_SMALL, fg=COR_TEXT_DIM, bg=COR_PANEL,
+                                    font=FONT_SMALL, fg="#8899aa", bg=COR_HEADER_BG,
                                     padx=16)
         self.lbl_status.pack(side="left")
         self.progress = ttk.Progressbar(status, mode="indeterminate", length=120)
@@ -422,13 +443,41 @@ class NFEConsultaApp(tk.Tk):
             info = self.cert.info()
             self._atualizar_status_cert(ok=True, info=info)
             self._log(f"Certificado carregado: {info['titular']} | CNPJ: {info['cnpj']} | Validade: {info['validade']}", "ok")
-            # Preenche CNPJ automaticamente
             if info["cnpj"]:
                 self.var_cnpj.set(info["cnpj"])
+            # Persiste configuração (caminho + CNPJ; senha não é salva por segurança)
+            self.storage.salvar_cert_config("pfx", path, info["cnpj"])
         except Exception as e:
             self.cert = None
             self._atualizar_status_cert(ok=False)
             self._log(f"Erro ao carregar certificado: {e}", "erro")
+
+    def _restaurar_cert_salvo(self):
+        """Tenta restaurar o certificado usado na última sessão."""
+        cfg = self.storage.get_cert_config()
+        if not cfg:
+            return
+        tipo  = cfg.get("tipo", "")
+        valor = cfg.get("valor", "")
+        cnpj  = cfg.get("cnpj", "")
+
+        if tipo == "pfx" and valor and os.path.exists(valor):
+            self.var_cert_path.set(os.path.basename(valor))
+            self._cert_path_full = valor
+            if cnpj:
+                self.var_cnpj.set(cnpj)
+            self._log(f"Certificado anterior encontrado: {os.path.basename(valor)} — "
+                      f"informe a senha e clique em Carregar.", "info")
+
+        elif tipo == "windows" and valor:
+            # Tenta recarregar do Windows Store pelo CN salvo
+            certs = listar_certificados_windows()
+            for c in certs:
+                if c["titular"] == valor:
+                    self._log(f"Restaurando certificado do Windows: {valor}...", "info")
+                    self._carregar_cert_do_windows(c)
+                    return
+            self._log(f"Certificado Windows '{valor}' não encontrado no store.", "aviso")
 
     def _selecionar_cert_windows(self):
         """Abre janela de seleção de certificados instalados no Windows."""
@@ -527,6 +576,7 @@ class NFEConsultaApp(tk.Tk):
             )
             if info["cnpj"]:
                 self.var_cnpj.set(info["cnpj"])
+            self.storage.salvar_cert_config("windows", cert_info["titular"], info["cnpj"])
 
         except ImportError:
             self.cert = None
@@ -691,37 +741,82 @@ class NFEConsultaApp(tk.Tk):
         chave   = nfe.get("chave", "").strip()
         tipo    = nfe.get("tipo", "")
 
-        # Deduplica por NSU (único e sequencial — mais confiável que chave para eventos)
+        # Deduplica por NSU
         for item in self.tree.get_children():
-            if self.tree.item(item, "values")[0].strip() == nsu_str:
+            if self.tree.item(item, "values")[1].strip() == nsu_str:
                 return
 
         sit = nfe.get("situacao", "")
-        if sit in ("Autorizada",):
+        xml_baixado = bool(nfe.get("xml_raw", ""))
+
+        if sit == "Autorizada":
             cor = "ok"
         elif sit in ("Cancelada", "Denegada", "Cancelamento"):
             cor = "cancel"
-        elif "Evento" in tipo or "Ciência" in sit or "Confirmação" in sit or "Desconhecimento" in sit:
+        elif "Evento" in tipo:
             cor = "evento"
         else:
             cor = ""
 
-        # Emitente: para eventos mostra o tipo do evento no lugar
         emitente = nfe.get("emitente", "")
         if "Evento" in tipo and not emitente:
             emitente = tipo
 
         self.tree.insert("", "end", values=(
+            "",           # sel (checkbox visual)
             nsu_str,
             chave,
             emitente,
             nfe.get("valor", ""),
             nfe.get("emissao", ""),
             sit,
+            "✔" if xml_baixado else "",
         ), tags=(cor,))
+
         self.tree.tag_configure("ok",     foreground=COR_SUCCESS)
         self.tree.tag_configure("cancel", foreground=COR_ERROR)
         self.tree.tag_configure("evento", foreground=COR_WARNING)
+        self.tree.tag_configure("xml_ok", background=COR_XML_OK)
+
+    def _toggle_sel_all(self):
+        """Marca/desmarca todas as linhas."""
+        children = self.tree.get_children()
+        if not children:
+            return
+        # Verifica se alguma está desmarcada
+        alguma_desmarcada = any(
+            self.tree.item(i, "values")[0] == "" for i in children
+        )
+        novo = "☑" if alguma_desmarcada else ""
+        for item in children:
+            vals = list(self.tree.item(item, "values"))
+            vals[0] = novo
+            self.tree.item(item, values=vals)
+
+    def _toggle_sel_item(self, event):
+        """Clique na coluna ✓ alterna seleção individual."""
+        region = self.tree.identify_region(event.x, event.y)
+        col    = self.tree.identify_column(event.x)
+        if region == "cell" and col == "#1":  # coluna sel
+            item = self.tree.identify_row(event.y)
+            if item:
+                vals = list(self.tree.item(item, "values"))
+                vals[0] = "" if vals[0] == "☑" else "☑"
+                self.tree.item(item, values=vals)
+            return "break"
+
+    def _get_selecionados(self):
+        """Retorna lista de dicts das notas marcadas com ☑."""
+        cnpj  = self.var_cnpj.get().strip().replace(".", "").replace("/", "").replace("-", "")
+        notas = []
+        for item in self.tree.get_children():
+            vals = self.tree.item(item, "values")
+            if vals[0] == "☑":
+                nsu_str = vals[1].strip()
+                chave   = vals[2].strip()
+                nota    = self.storage.get_nota(cnpj, chave) or {"nsu": int(nsu_str), "chave": chave}
+                notas.append(nota)
+        return notas
 
     def _atualizar_nsu_label(self):
         cnpj = self.var_cnpj.get().strip().replace(".", "").replace("/", "").replace("-", "")
@@ -962,12 +1057,89 @@ class NFEConsultaApp(tk.Tk):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _baixar_xml_lote(self):
+        """Baixa XMLs de todas as notas marcadas com ☑, salvando numa pasta."""
+        selecionadas = self._get_selecionados()
+        if not selecionadas:
+            messagebox.showwarning("Atenção", "Marque as notas desejadas clicando na coluna ✓.\n"
+                                              "Clique no cabeçalho ✓ para selecionar todas.")
+            return
+        if not self.cert:
+            messagebox.showwarning("Atenção", "Carregue o certificado digital primeiro.")
+            return
+
+        pasta = filedialog.askdirectory(title="Selecione a pasta para salvar os XMLs")
+        if not pasta:
+            return
+
+        cnpj = self.var_cnpj.get().strip().replace(".", "").replace("/", "").replace("-", "")
+        total = len(selecionadas)
+        self._log(f"Download em lote: {total} nota(s) selecionada(s)...", "info")
+        self.progress.start(10)
+        self.btn_consultar.config(state="disabled")
+
+        def worker():
+            ok = 0
+            erros = 0
+            ambiente = int(self.var_ambiente.get())
+            client   = EventoClient(self.cert, ambiente)
+
+            for nota in selecionadas:
+                chave = nota.get("chave", "").strip()
+                nsu   = nota.get("nsu", 0)
+
+                if not chave and not nsu:
+                    continue
+
+                # Verifica XML já salvo localmente
+                xml_str = nota.get("xml_raw", "")
+
+                if not xml_str and nsu:
+                    try:
+                        res = client.baixar_xml(cnpj, int(nsu))
+                        if res.get("status") == "ok":
+                            xml_str = res["xml_str"]
+                            nota["xml_raw"] = xml_str
+                            self.storage.salvar_notas(cnpj, [nota])
+                    except Exception as e:
+                        self._log(f"Erro ao baixar NSU {nsu}: {e}", "erro")
+                        erros += 1
+                        continue
+
+                if xml_str:
+                    nome = f"NFe_{chave or nsu}.xml"
+                    caminho = os.path.join(pasta, nome)
+                    with open(caminho, "w", encoding="utf-8") as f:
+                        f.write(xml_str)
+                    self._log(f"  ✔ {nome}", "ok")
+                    self.after(0, self._marcar_xml_baixado, nsu)
+                    ok += 1
+                else:
+                    self._log(f"  ✘ NSU {nsu} — XML não disponível (faça Ciência primeiro)", "aviso")
+                    erros += 1
+
+            self._log(f"Download concluído: {ok} salvo(s), {erros} sem XML disponível.", "ok" if not erros else "aviso")
+            self.after(0, self.progress.stop)
+            self.after(0, lambda: self.btn_consultar.config(state="normal"))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _marcar_xml_baixado(self, nsu):
+        """Atualiza a coluna XML na linha correspondente ao NSU."""
+        nsu_str = str(nsu).strip()
+        for item in self.tree.get_children():
+            vals = list(self.tree.item(item, "values"))
+            if vals[1].strip() == nsu_str:
+                vals[7] = "✔"
+                self.tree.item(item, values=vals)
+                break
+
     def _atualizar_situacao_tree(self, chave: str, nova_sit: str):
         """Atualiza a coluna Situação na Treeview para a nota especificada."""
         for item in self.tree.get_children():
             vals = list(self.tree.item(item, "values"))
-            if vals[1].strip() == chave:
-                vals[5] = nova_sit
+            if vals[2].strip() == chave:
+                vals[6] = nova_sit
                 self.tree.item(item, values=vals)
                 break
 

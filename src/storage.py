@@ -10,7 +10,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+# Usa ABBAS_NFE_DIR quando rodando como .exe (PyInstaller), senão usa pasta do projeto
+_BASE = Path(os.environ.get("ABBAS_NFE_DIR", Path(__file__).parent.parent))
+DATA_DIR = _BASE / "data"
 
 
 class StorageNSU:
@@ -39,6 +41,19 @@ class StorageNSU:
     def _salvar_estado(self):
         with open(self._nsu_file, "w", encoding="utf-8") as f:
             json.dump(self._estado, f, indent=2, ensure_ascii=False)
+
+    def salvar_cert_config(self, tipo: str, valor: str, cnpj: str = ""):
+        """Salva configuração do certificado para restaurar na próxima abertura."""
+        self._estado["_cert_config"] = {"tipo": tipo, "valor": valor, "cnpj": cnpj}
+        self._salvar_estado()
+
+    def get_cert_config(self) -> dict:
+        """Retorna configuração salva do certificado."""
+        return self._estado.get("_cert_config", {})
+
+    def limpar_cert_config(self):
+        self._estado.pop("_cert_config", None)
+        self._salvar_estado()
 
     # ── NSU ──────────────────────────────────────────────────────────────────
 
