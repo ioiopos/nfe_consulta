@@ -1,20 +1,9 @@
-# NF-e Destinadas - Dependências
-# Instale com: pip install -r requirements.txt
-
-# Criptografia e leitura do certificado .pfx
+customtkinter>=5.2.0
+darkdetect>=0.8.0
 cryptography>=41.0.0
-
-# HTTP com suporte a certificado mútuo (TLS)
 requests>=2.31.0
 urllib3>=2.0.0
-
-# Assinatura XML (obrigatória para Manifestação do Destinatário)
 lxml>=4.9.0
 signxml>=3.2.0
-
-# Windows Certificate Store — certificados não-exportáveis via WinHTTP COM
-# Necessário apenas no Windows para usar certificados instalados no sistema
 pywin32>=306
-
-# (Opcional) pyOpenSSL como fallback para leitura do .pfx
 pyOpenSSL>=23.0.0
