@@ -56,11 +56,13 @@ class NFEConsultaApp(ctk.CTk):
         self.geometry("1280x800")
         self.minsize(1060, 700)
         self.configure(fg_color=BG)
-        self.cert    = None
+        self.cert       = None
+        self._pfx_senha = None
         self.storage = StorageNSU()
         self._build_ui()
         self._atualizar_status_cert()
-        self._carregar_nfes_salvas()
+        # Recarrega notas salvas sempre que o CNPJ mudar (ex: ao carregar certificado)
+        self.var_cnpj.trace_add("write", lambda *_: self.after(100, self._carregar_nfes_salvas))
         self._restaurar_cert_salvo()
 
     # ── UI ────────────────────────────────────────────────────────────────────
@@ -499,6 +501,7 @@ class NFEConsultaApp(ctk.CTk):
             self._log("Informe a senha do certificado.", "aviso"); return
         try:
             self.cert = CertificadoDigital(path, senha)
+            self._pfx_senha = senha
             info = self.cert.info()
             self._atualizar_status_cert(ok=True, info=info)
             self._log(f"Certificado: {info['titular']} | CNPJ: {info['cnpj']} | Val: {info['validade']}", "ok")
@@ -856,34 +859,94 @@ class NFEConsultaApp(ctk.CTk):
         txt.configure(state="disabled")
 
     def _baixar_xml(self):
+        """
+        Download inteligente — NT 2014.002 seção 3.7 + NT 2020.001:
+        1. Se já tem procNFe no storage → salva direto
+        2. Se só tem resNFe → Ciência automática → consChNFe → procNFe → salva
+        O token de 60min (cStat=656) aplica-se APENAS ao distNSU, não ao consChNFe.
+        """
         sel = self.tree.selection()
         if not sel: messagebox.showwarning("Atenção","Selecione uma NF-e."); return
         if not self.cert: messagebox.showwarning("Atenção","Carregue o certificado."); return
-        vals = self.tree.item(sel[0],"values")
-        nsu_str, chave = vals[1].strip(), vals[2].strip()
-        try: nsu = int(nsu_str)
-        except ValueError: messagebox.showerror("Erro",f"NSU inválido: {nsu_str}"); return
-        cnpj = self.var_cnpj.get().strip().replace(".","").replace("/","").replace("-","")
-        nota = self.storage.get_nota(cnpj, chave)
-        if nota and nota.get("xml_raw"): self._salvar_xml_dialog(nota["xml_raw"], chave); return
-        self._log(f"Baixando XML · NSU {nsu:015d}...", "info")
+        vals  = self.tree.item(sel[0],"values")
+        chave = vals[2].strip()
+        cnpj  = self.var_cnpj.get().strip().replace(".","").replace("/","").replace("-","")
+        nota  = self.storage.get_nota(cnpj, chave)
+
+        # Já tem procNFe completo? Salva direto.
+        xml_raw = nota.get("xml_raw","") if nota else ""
+        if xml_raw and "<procNFe" in xml_raw:
+            self._salvar_xml_dialog(xml_raw, chave); return
+
+        self._log(f"Obtendo XML completo para {chave[:20]}...", "info")
+        self._log("  1/3 Registrando Ciencia da Operacao...", "info")
         self.progress.start(10)
+
         def worker():
             try:
-                r = EventoClient(self.cert, int(self.var_ambiente.get())).baixar_xml(cnpj, nsu)
-                if r["status"]=="ok" and r.get("xml_str"):
-                    xml = r["xml_str"]
-                    if nota: nota["xml_raw"]=xml; self.storage.salvar_notas(cnpj,[nota])
-                    self._log(f"XML baixado · {len(xml)} bytes","ok")
-                    self.after(0, self._salvar_xml_dialog, xml, chave)
-                    self.after(0, self._marcar_xml_baixado, nsu)
-                elif r["status"]=="sem_xml":
-                    self._log("XML indisponível — faça Ciência primeiro.","aviso")
-                    self.after(0, messagebox.showwarning, "Indisponível", "Faça Manifestação → Ciência primeiro.")
-                else: self._log(f"Erro: {r.get('mensagem','')}","erro")
-            except Exception as e: self._log(f"Erro: {e}","erro")
-            finally: self.after(0, self.progress.stop)
-        threading.Thread(target=worker,daemon=True).start()
+                client = EventoClient(self.cert, int(self.var_ambiente.get()))
+                cuf    = self.var_uf.get().strip() or "43"
+
+                # Passo 1: Ciência automática (se ainda não manifestou)
+                sit_atual = nota.get("situacao","") if nota else ""
+                ja_manifestou = any(s in sit_atual for s in [
+                    "Ciencia","Confirmacao","Desconhecimento","Operacao nao"])
+
+                if not ja_manifestou:
+                    r_ev = client.manifestar(cnpj, chave, "210210")  # Ciência
+                    if r_ev["status"] == "ok":
+                        self._log(f"  ✔ Ciência registrada · Protocolo: {r_ev.get('protocolo','')}", "ok")
+                        if nota:
+                            nota["situacao"] = "Ciencia da Operacao"
+                            nota["protocolo_manifestacao"] = r_ev.get("protocolo","")
+                            self.storage.salvar_notas(cnpj, [nota])
+                        self.after(0, self._atualizar_situacao_tree, chave, "Ciencia da Operacao")
+                    elif r_ev["status"] == "duplicidade":
+                        self._log("  Ciência já registrada anteriormente.", "info")
+                    else:
+                        self._log(f"  ⚠ Ciência falhou: {r_ev.get('mensagem','')} — tentando buscar XML mesmo assim...", "aviso")
+                else:
+                    self._log(f"  Manifestação já existe: {sit_atual}", "info")
+
+                # Passo 2: busca o XML completo via consChNFe (não consome token distNSU)
+                self._log("  2/3 Buscando XML completo via consChNFe...", "info")
+                from src.sefaz_client import SefazClient
+                sc = SefazClient(self.cert, int(self.var_ambiente.get()), cuf)
+                r_ch = sc.consultar_por_chave(cnpj, chave)
+
+                if r_ch["status"] == "ok" and r_ch.get("notas"):
+                    nfe_data = r_ch["notas"][0]
+                    xml_completo = nfe_data.get("xml_raw","")
+                    schema = nfe_data.get("schema","")
+
+                    if "procNFe" in schema or "<procNFe" in xml_completo:
+                        self._log("  ✔ XML completo (procNFe) obtido!", "ok")
+                        if nota:
+                            nota["xml_raw"] = xml_completo
+                            nota["schema"]  = schema
+                            self.storage.salvar_notas(cnpj, [nota])
+                        self.after(0, self._marcar_xml_baixado,
+                                   nota.get("nsu",0) if nota else 0)
+                        self.after(0, self._salvar_xml_dialog, xml_completo, chave)
+                    else:
+                        # Ainda retornou resNFe — Ciência pode ainda não ter propagado
+                        self._log("  ⚠ SEFAZ retornou resNFe (resumo).", "aviso")
+                        self._log("    A Ciência foi registrada mas o SEFAZ pode demorar", "aviso")
+                        self._log("    alguns segundos para liberar o XML completo.", "aviso")
+                        self._log("    Tente novamente em 30 segundos.", "aviso")
+                        if xml_completo:
+                            self.after(0, self._salvar_xml_dialog, xml_completo, chave)
+                else:
+                    self._log(f"  Erro ao buscar XML: {r_ch.get('mensagem','')}", "erro")
+
+            except Exception as e:
+                import traceback
+                self._log(f"Erro: {e}", "erro")
+                self._log(traceback.format_exc()[:300], "erro")
+            finally:
+                self.after(0, self.progress.stop)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _salvar_xml_dialog(self, xml_str, chave):
         path = filedialog.asksaveasfilename(defaultextension=".xml",
@@ -949,22 +1012,63 @@ class NFEConsultaApp(ctk.CTk):
         self.progress.start(10)
         self.btn_consultar.configure(state="disabled")
         def worker():
-            ok=erros=0; client=EventoClient(self.cert,int(self.var_ambiente.get()))
-            for nota in sels:
-                nsu=nota.get("nsu",0); chave=nota.get("chave","").strip()
-                xml=nota.get("xml_raw","")
-                if not xml and nsu:
-                    try:
-                        r=client.baixar_xml(cnpj,int(nsu))
-                        if r.get("status")=="ok": xml=r["xml_str"]; nota["xml_raw"]=xml; self.storage.salvar_notas(cnpj,[nota])
-                    except Exception as e: self._log(f"Erro NSU {nsu}: {e}","erro"); erros+=1; continue
-                if xml:
-                    open(os.path.join(pasta,f"NFe_{chave or nsu}.xml"),"w",encoding="utf-8").write(xml)
-                    self._log(f"✔ NFe_{chave or nsu}.xml","ok"); self.after(0,self._marcar_xml_baixado,nsu); ok+=1
-                else: self._log(f"✘ NSU {nsu} — sem XML (faça Ciência)","aviso"); erros+=1
-            self._log(f"Lote: {ok} salvo(s), {erros} sem XML.","ok" if not erros else "aviso")
-            self.after(0,self.progress.stop); self.after(0,lambda:self.btn_consultar.configure(state="normal"))
-        threading.Thread(target=worker,daemon=True).start()
+            import time as _time
+            ok=erros=0
+            client_ev = EventoClient(self.cert, int(self.var_ambiente.get()))
+            from src.sefaz_client import SefazClient
+            sc = SefazClient(cert_evento, int(self.var_ambiente.get()),
+                             self.var_uf.get().strip() or "43")
+            for i, nota in enumerate(sels, 1):
+                chave = nota.get("chave","").strip()
+                xml   = nota.get("xml_raw","")
+                self._log(f"[{i}/{len(sels)}] {chave[:20]}...", "info")
+
+                # Já tem procNFe?
+                if xml and "<procNFe" in xml:
+                    open(os.path.join(pasta, f"NFe_{chave}.xml"), "w", encoding="utf-8").write(xml)
+                    self._log(f"  ✔ procNFe (cache)", "ok"); ok += 1; continue
+
+                # Ciência automática se necessário
+                sit = nota.get("situacao","")
+                if not any(s in sit for s in ["Ciencia","Confirmacao","Desconhecimento","Operacao nao"]):
+                    r_ev = client_ev.manifestar(cnpj, chave, "210210")
+                    if r_ev["status"] == "ok":
+                        nota["situacao"] = "Ciencia da Operacao"
+                        self._log(f"  ✔ Ciência registrada", "ok")
+                    elif r_ev["status"] != "duplicidade":
+                        self._log(f"  ⚠ Ciência: {r_ev.get('mensagem','')}", "aviso")
+
+                # Busca procNFe via consChNFe
+                r_ch = sc.consultar_por_chave(cnpj, chave)
+                if r_ch["status"] == "ok" and r_ch.get("notas"):
+                    xml_novo = r_ch["notas"][0].get("xml_raw","")
+                    schema   = r_ch["notas"][0].get("schema","")
+                    if "procNFe" in schema or "<procNFe" in xml_novo:
+                        nota["xml_raw"] = xml_novo
+                        nota["schema"]  = schema
+                        self.storage.salvar_notas(cnpj, [nota])
+                        open(os.path.join(pasta, f"NFe_{chave}.xml"), "w", encoding="utf-8").write(xml_novo)
+                        self._log(f"  ✔ procNFe salvo", "ok")
+                        self.after(0, self._marcar_xml_baixado, nota.get("nsu",0))
+                        ok += 1
+                    else:
+                        # resNFe — salva mesmo assim
+                        if xml_novo:
+                            open(os.path.join(pasta, f"NFe_{chave}_resumo.xml"), "w", encoding="utf-8").write(xml_novo)
+                        self._log(f"  ⚠ resNFe (resumo) — SEFAZ pode precisar de segundos", "aviso")
+                        erros += 1
+                else:
+                    self._log(f"  ✘ {r_ch.get('mensagem','erro')}", "erro"); erros += 1
+
+                # Delay entre consultas consChNFe (limite: 20/hora)
+                if i < len(sels):
+                    _time.sleep(2.0)
+
+            self._log(f"Lote: {ok} procNFe salvo(s), {erros} pendente(s).",
+                      "ok" if ok > 0 else "aviso")
+            self.after(0, self.progress.stop)
+            self.after(0, lambda: self.btn_consultar.configure(state="normal"))
+        threading.Thread(target=worker, daemon=True).start()
 
     def _marcar_xml_baixado(self, nsu):
         nsu_str=str(nsu).strip()
@@ -983,9 +1087,20 @@ class NFEConsultaApp(ctk.CTk):
             self._log(f"Exportado: {path}","ok")
 
     def _carregar_nfes_salvas(self):
-        cnpj = self.var_cnpj.get().strip()
-        for nota in (self.storage.get_todas_notas(cnpj) if cnpj else []):
+        """Recarrega todas as NF-es salvas do storage para a tabela."""
+        cnpj = self.var_cnpj.get().strip().replace(".","").replace("/","").replace("-","")
+        if not cnpj or not cnpj.isdigit() or len(cnpj) != 14:
+            return
+        # Limpa a tabela antes de recarregar para evitar duplicatas
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        notas = self.storage.get_todas_notas(cnpj)
+        for nota in notas:
             self._inserir_nfe_tree(nota)
+        total = len(notas)
+        if total > 0:
+            self.lbl_total_nfe.configure(text=f"{total} nota(s) carregada(s) do histórico")
+            self._atualizar_nsu_label()
 
     def _limpar_lista(self):
         for i in self.tree.get_children(): self.tree.delete(i)
@@ -1008,8 +1123,11 @@ class NFEConsultaApp(ctk.CTk):
 
 class _CertificadoWinHTTP:
     def __init__(self, ci):
-        self._titular=ci.get("titular",""); self._cnpj=ci.get("cnpj","")
-        self._validade=ci.get("validade",""); self._winhttp_cn=self._titular
+        self._titular   = ci.get("titular","")
+        self._cnpj      = ci.get("cnpj","")
+        self._validade  = ci.get("validade","")
+        self._der       = ci.get("der", b"")   # bytes DER — para assinatura CAPI
+        self._winhttp_cn = self._titular
     def info(self): return {"titular":self._titular,"cnpj":self._cnpj,"validade":self._validade,"arquivo":"Windows Store (WinHTTP)"}
     def exportar_pem_temp(self): raise RuntimeError("Não-exportável — use WinHTTP.")
     @property
@@ -1018,6 +1136,8 @@ class _CertificadoWinHTTP:
     def cnpj(self): return self._cnpj
     @property
     def validade(self): return self._validade
+    @property
+    def der(self): return self._der
 
 
 class _CertificadoWindowsStore:

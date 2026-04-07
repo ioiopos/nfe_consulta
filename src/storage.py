@@ -10,8 +10,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 
-# Usa ABBAS_NFE_DIR quando rodando como .exe (PyInstaller), senão usa pasta do projeto
-_BASE = Path(os.environ.get("ABBAS_NFE_DIR", Path(__file__).parent.parent))
+# Usa MPI_NFE_DIR quando rodando como .exe (PyInstaller), senão usa pasta do projeto
+_BASE = Path(os.environ.get("MPI_NFE_DIR", Path(__file__).parent.parent))
 DATA_DIR = _BASE / "data"
 
 
@@ -78,15 +78,28 @@ class StorageNSU:
         return self._nota_dir / f"notas_{cnpj}.json"
 
     def salvar_notas(self, cnpj: str, notas: List[Dict]):
-        """Acrescenta novas notas ao arquivo do CNPJ (sem duplicar pela chave)."""
+        """Salva/atualiza notas. Novas são adicionadas; existentes são atualizadas."""
         existentes = self.get_todas_notas(cnpj)
-        chaves_existentes = {n.get("chave", "") for n in existentes}
+        idx_por_chave = {n.get("chave", ""): i for i, n in enumerate(existentes)}
 
-        novas = [n for n in notas if n.get("chave", "") not in chaves_existentes]
-        todas = existentes + novas
+        for nota in notas:
+            chave = nota.get("chave", "")
+            if chave and chave in idx_por_chave:
+                # Atualiza — preserva xml_raw se a nova não tiver ou for menor
+                i = idx_por_chave[chave]
+                xml_antigo = existentes[i].get("xml_raw", "")
+                xml_novo   = nota.get("xml_raw", "")
+                # Mantém o maior XML (procNFe tem mais chars que resNFe)
+                if xml_antigo and (not xml_novo or len(xml_antigo) > len(xml_novo)):
+                    nota["xml_raw"] = xml_antigo
+                existentes[i] = nota
+            else:
+                existentes.append(nota)
+                if chave:
+                    idx_por_chave[chave] = len(existentes) - 1
 
         with open(self._nota_file(cnpj), "w", encoding="utf-8") as f:
-            json.dump(todas, f, indent=2, ensure_ascii=False)
+            json.dump(existentes, f, indent=2, ensure_ascii=False)
 
     def get_todas_notas(self, cnpj: str) -> List[Dict]:
         """Retorna todas as notas salvas para o CNPJ."""

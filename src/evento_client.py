@@ -8,8 +8,8 @@ Tipos de evento de manifestação:
   210220 - Desconhecimento da Operação  (conclusivo - não reconhece)
   210240 - Operação não Realizada       (conclusivo - requer justificativa)
 
-URL Produção:    https://www.nfe.fazenda.gov.br/RecepcaoEvento/RecepcaoEvento.asmx
-URL Homologação: https://hom.nfe.fazenda.gov.br/RecepcaoEvento/RecepcaoEvento.asmx
+URL Produção:    https://www.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx
+URL Homologação: https://hom.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx
 """
 
 import os
@@ -29,8 +29,8 @@ from src.certificado import CertificadoDigital
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ─────────────────────────────────────────────────────────────────────────────
-URL_EVENTO_PROD = "https://www.nfe.fazenda.gov.br/RecepcaoEvento/RecepcaoEvento.asmx"
-URL_EVENTO_HOM  = "https://hom.nfe.fazenda.gov.br/RecepcaoEvento/RecepcaoEvento.asmx"
+URL_EVENTO_PROD = "https://www.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx"
+URL_EVENTO_HOM  = "https://hom.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx"
 
 URL_DIST_PROD   = "https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx"
 URL_DIST_HOM    = "https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx"
@@ -64,7 +64,7 @@ class EventoClient:
                    justificativa: str = "", n_seq: int = 1) -> dict:
         xml_evento   = self._montar_xml_evento(cnpj, chave, tp_evento, justificativa, n_seq)
         soap_action  = ("http://www.portalfiscal.inf.br/nfe/wsdl/"
-                        "NFeRecepcaoEvento4/nfeRecepcaoEvento")
+                        "NFeRecepcaoEvento4/nfeRecepcaoEventoNF")
 
         if self._modo_winhttp:
             return self._post_winhttp(
@@ -138,9 +138,41 @@ class EventoClient:
 
             pythoncom.CoInitialize()
             try:
-                body = xml_or_soap if isinstance(xml_or_soap, bytes) else xml_or_soap.encode("utf-8")
+                # Assina o XML do evento com o certificado do Windows Store
+                if assinar and isinstance(xml_or_soap, str):
+                    try:
+                        from src.assinatura_winstore import assinar_evento_winstore
+                        cert_der = getattr(self.cert, "der", b"")
+                        xml_assinado = assinar_evento_winstore(xml_or_soap, cn, cert_der)
+                        soap = self._montar_soap_evento(xml_assinado)
+                        body = soap.encode("utf-8")
+                        # Salva o XML do evento enviado para depuração
+                        try:
+                            import os, pathlib
+                            base = pathlib.Path(os.environ.get("MPI_NFE_DIR",
+                                               pathlib.Path(__file__).parent.parent))
+                            log_dir = base / "logs"
+                            log_dir.mkdir(exist_ok=True)
+                            from datetime import datetime
+                            ts = datetime.now().strftime("%H%M%S")
+                            (log_dir / f"evento_enviado_{ts}.xml").write_bytes(body)
+                            (log_dir / f"evento_assinado_{ts}.xml").write_text(xml_assinado, encoding="utf-8")
+                        except Exception:
+                            pass
+                    except Exception as e_sign:
+                        return {"status": "erro", "codigo": "SIGN_ERRO",
+                                "mensagem": f"Assinatura Windows Store falhou: {e_sign}",
+                                "protocolo": "", "xml_str": ""}
+                else:
+                    body = xml_or_soap if isinstance(xml_or_soap, bytes) else xml_or_soap.encode("utf-8")
+
                 response_text = requisicao_winhttp(url, body, cn,
                                                    headers={"SOAPAction": soap_action})
+                # Salva resposta do SEFAZ para depuração
+                try:
+                    (log_dir / f"evento_resp_{ts}.xml").write_text(response_text, encoding="utf-8")
+                except Exception:
+                    pass
                 return processar_fn(response_text)
             finally:
                 pythoncom.CoUninitialize()
@@ -164,7 +196,7 @@ class EventoClient:
         return f"""<?xml version="1.0" encoding="UTF-8"?>
 <envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">
   <idLote>{id_lote}</idLote>
-  <evento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">
+  <evento versao="1.00">
     <infEvento Id="{id_evento}">
       <cOrgao>{C_ORGAO_AN}</cOrgao>
       <tpAmb>{self.ambiente}</tpAmb>
@@ -193,6 +225,10 @@ class EventoClient:
 </distDFeInt>"""
 
     def _montar_soap_evento(self, xml_body: str) -> str:
+        # Estrutura EXATA conforme WSDL do NFeRecepcaoEvento4 (SOAP 1.2):
+        # https://www1.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx
+        # - Sem wrapper <nfeRecepcaoEvento> — body direto no <soap12:Body>
+        # - Sem action no Content-Type para SOAP 1.2
         return (
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<soap12:Envelope'
@@ -200,11 +236,9 @@ class EventoClient:
             ' xmlns:xsd="http://www.w3.org/2001/XMLSchema"'
             ' xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">'
             '<soap12:Body>'
-            '<nfeRecepcaoEvento xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">'
             '<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">'
             f'{xml_body}'
             '</nfeDadosMsg>'
-            '</nfeRecepcaoEvento>'
             '</soap12:Body>'
             '</soap12:Envelope>'
         )
@@ -265,6 +299,22 @@ class EventoClient:
                 "mensagem": xmot,
                 "protocolo": nprot,
                 "dh_registro": dh_reg,
+            }
+        elif cstat == "573":
+            # Duplicidade — evento já registrado anteriormente (ok para nosso fluxo)
+            return {
+                "status": "duplicidade",
+                "codigo": cstat,
+                "mensagem": "Ciência já registrada anteriormente para esta NF-e",
+                "protocolo": nprot,
+            }
+        elif cstat == "655":
+            # Ciência após manifestação final — ok, já está manifestado
+            return {
+                "status": "duplicidade",
+                "codigo": cstat,
+                "mensagem": "Manifestação final já registrada",
+                "protocolo": nprot,
             }
         else:
             return {

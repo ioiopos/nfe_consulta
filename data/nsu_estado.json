@@ -4,8 +4,8 @@
     "ultima_consulta": "2026-04-02T15:09:40.793492"
   },
   "65366998000198": {
-    "ultimo_nsu": 4,
-    "ultima_consulta": "2026-04-02T21:56:24.552903"
+    "ultimo_nsu": 7,
+    "ultima_consulta": "2026-04-06T19:43:24.488076"
   },
   "57971182000165": {
     "ultimo_nsu": 0,
@@ -13,7 +13,11 @@
   },
   "_cert_config": {
     "tipo": "windows",
-    "valor": "PCR PADARIA E CONFEITARIA BELLO SABORE LTDA:65366998000198",
-    "cnpj": "65366998000198"
+    "valor": "PEDRO HENRIQUE OLIVEIRA DE CASTILHOS:13667015000150",
+    "cnpj": "13667015000150"
+  },
+  "13667015000150": {
+    "ultimo_nsu": 4574,
+    "ultima_consulta": "2026-04-07T16:51:32.495936"
   }
 }

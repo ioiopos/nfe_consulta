@@ -46,5 +46,41 @@
     "situacao": "Autorizada",
     "cstat": "1",
     "xml_raw": "<resNFe xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" versao=\"1.01\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><chNFe>43260407272443000180550000009975161006080460</chNFe><CNPJ>07272443000180</CNPJ><xNome>MARQUESPAN ALIMENTOS LTDA.</xNome><IE>0570235855</IE><dhEmi>2026-04-02T06:00:00-03:00</dhEmi><tpNF>1</tpNF><vNF>1506.35</vNF><digVal>6xywGWPjKF9c5r+VEudaTfiuCXI=</digVal><dhRecbto>2026-04-02T14:36:16-03:00</dhRecbto><nProt>243260108587187</nProt><cSitNFe>1</cSitNFe></resNFe>"
+  },
+  {
+    "nsu": 5,
+    "schema": "resNFe_v1.01.xsd",
+    "tipo": "Resumo",
+    "chave": "43260408111611000119550000001347421001324300",
+    "emitente": "CONGELADOS HEISLER LTDA (08111611000119)",
+    "valor": "1.400,40",
+    "emissao": "06/04/2026 15:55",
+    "situacao": "Autorizada",
+    "cstat": "1",
+    "xml_raw": "<resNFe xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" versao=\"1.01\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><chNFe>43260408111611000119550000001347421001324300</chNFe><CNPJ>08111611000119</CNPJ><xNome>CONGELADOS HEISLER LTDA</xNome><IE>1410087880</IE><dhEmi>2026-04-06T15:55:47-03:00</dhEmi><tpNF>1</tpNF><vNF>1400.40</vNF><digVal>37qHj7hfJatUP1pfXKjW+MTDgSs=</digVal><dhRecbto>2026-04-06T15:55:49-03:00</dhRecbto><nProt>243260111398373</nProt><cSitNFe>1</cSitNFe></resNFe>"
+  },
+  {
+    "nsu": 6,
+    "schema": "resNFe_v1.01.xsd",
+    "tipo": "Resumo",
+    "chave": "43260463635436000177550020000005231334940730",
+    "emitente": "DISTRIBUIDORA SILVEIRA (63635436000177)",
+    "valor": "166,04",
+    "emissao": "06/04/2026 17:36",
+    "situacao": "Autorizada",
+    "cstat": "1",
+    "xml_raw": "<resNFe xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" versao=\"1.01\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><chNFe>43260463635436000177550020000005231334940730</chNFe><CNPJ>63635436000177</CNPJ><xNome>DISTRIBUIDORA SILVEIRA</xNome><IE>0240603451</IE><dhEmi>2026-04-06T17:36:48-03:00</dhEmi><tpNF>1</tpNF><vNF>166.04</vNF><digVal>ZqR7XkWa3RuhqeJxzB0G0NxoBVw=</digVal><dhRecbto>2026-04-06T17:36:56-03:00</dhRecbto><nProt>243260111612122</nProt><cSitNFe>1</cSitNFe></resNFe>"
+  },
+  {
+    "nsu": 7,
+    "schema": "resNFe_v1.01.xsd",
+    "tipo": "Resumo",
+    "chave": "43260487315099000875550020031443351412305150",
+    "emitente": "FRUKI BEBIDAS S/A. CANOAS (87315099000875)",
+    "valor": "805,95",
+    "emissao": "06/04/2026 18:38",
+    "situacao": "Autorizada",
+    "cstat": "1",
+    "xml_raw": "<resNFe xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" versao=\"1.01\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><chNFe>43260487315099000875550020031443351412305150</chNFe><CNPJ>87315099000875</CNPJ><xNome>FRUKI BEBIDAS S/A. CANOAS</xNome><IE>0240458591</IE><dhEmi>2026-04-06T18:38:18-03:00</dhEmi><tpNF>1</tpNF><vNF>805.95</vNF><digVal>KAwJdy+K5aemiN0oUO2iWwCi8ho=</digVal><dhRecbto>2026-04-06T18:38:33-03:00</dhRecbto><nProt>243260111691006</nProt><cSitNFe>1</cSitNFe></resNFe>"
   }
 ]

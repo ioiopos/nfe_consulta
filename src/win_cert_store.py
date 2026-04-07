@@ -136,18 +136,43 @@ def requisicao_winhttp(url: str, soap_body: bytes, cn_certificado: str,
         cert_string = f"CURRENT_USER\\MY\\{cn_certificado}"
         req.SetClientCertificate(cert_string)
 
-        # Headers
+        # Headers conforme WSDL real do NFeRecepcaoEvento4:
+        # SOAP 1.2: Content-Type sem action (o servidor identifica pela operação no body)
+        # SOAP 1.1: Content-Type text/xml + SOAPAction header separado
+        soap_action = (headers or {}).get("SOAPAction", "")
         req.SetRequestHeader("Content-Type", "application/soap+xml; charset=utf-8")
+        # Passa outros headers (sem SOAPAction — SOAP 1.2 não usa)
         if headers:
             for k, v in headers.items():
-                req.SetRequestHeader(k, v)
+                if k != "SOAPAction":
+                    req.SetRequestHeader(k, v)
+
+        # Loga o Content-Type que está sendo enviado (para diagnóstico)
+        try:
+            import sys
+            print(f"[WinHTTP] URL: {url}", file=sys.stderr)
+            if soap_action:
+                print(f"[WinHTTP] Content-Type: application/soap+xml; charset=utf-8; action=\"{soap_action}\"", file=sys.stderr)
+        except Exception:
+            pass
 
         # Envia
         req.Send(soap_body)
 
         status = req.Status
+        # Loga headers da resposta para diagnóstico
+        try:
+            ct_resp = req.GetResponseHeader("Content-Type") or ""
+        except Exception:
+            ct_resp = ""
+
         if status != 200:
-            raise RuntimeError(f"HTTP {status}: {req.StatusText}")
+            # Captura o body mesmo no erro — o SEFAZ inclui detalhes no body do 500
+            try:
+                body_erro = req.ResponseText or ""
+            except Exception:
+                body_erro = ""
+            raise RuntimeError(f"HTTP {status}: {req.StatusText} | Body: {body_erro[:800]}")
 
         return req.ResponseText
 
