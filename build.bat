@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 chcp 1252 >nul
 title Abbas Tecnologia - Build NF-e Destinadas
 color 0A

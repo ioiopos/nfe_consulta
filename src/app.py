@@ -950,7 +950,7 @@ class NFEConsultaApp(ctk.CTk):
 
     def _salvar_xml_dialog(self, xml_str, chave):
         path = filedialog.asksaveasfilename(defaultextension=".xml",
-            filetypes=[("XML","*.xml")], initialfile=f"NFe_{chave[:20]}.xml")
+            filetypes=[("XML","*.xml")], initialfile=f"NFe_{chave}.xml")
         if path:
             open(path,"w",encoding="utf-8").write(xml_str)
             self._log(f"Salvo: {path}","ok")
@@ -1016,7 +1016,7 @@ class NFEConsultaApp(ctk.CTk):
             ok=erros=0
             client_ev = EventoClient(self.cert, int(self.var_ambiente.get()))
             from src.sefaz_client import SefazClient
-            sc = SefazClient(cert_evento, int(self.var_ambiente.get()),
+            sc = SefazClient(self.cert, int(self.var_ambiente.get()),
                              self.var_uf.get().strip() or "43")
             for i, nota in enumerate(sels, 1):
                 chave = nota.get("chave","").strip()
